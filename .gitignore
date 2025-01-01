@@ -1,0 +1,16 @@
+.idea/
+images/
+videos/
+build
+cmake-build-carcity-debug/
+cmake-build-toimart
+cmake-build-carcity-release/
+cmake-build-essentai/
+cmake-build-local-docker-debug/
+cmake-build-local-docker-release/
+cmake-build-debug
+.fleet
+prod
+build-notebook
+cmake-build-*
+event_folder

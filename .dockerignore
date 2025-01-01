@@ -1,0 +1,11 @@
+.idea/
+images/
+videos/
+cmake-build-carcity-debug/
+cmake-build-carcity-release/
+cmake-build-essentai/
+cmake-build-local-docker-debug/
+cmake-build-local-docker-release/
+config_files/
+config.json
+backup_models
