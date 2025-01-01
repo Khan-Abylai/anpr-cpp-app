@@ -13,15 +13,11 @@
 #include "package_sending/Package.h"
 #include "package_sending/Snapshot.h"
 #include "package_sending/SnapshotSender.h"
-#include "vehicle_detector/CarDetectionEngine.h"
-#include "car_model/MobileNetV2.h"
-#include "car_model/MobileNet.h"
-#include "car_model/VehicleRecognizer.h"
-#include "car_model/MMCClassifier.h"
-#include "car_model/CarTypeClassifier.h"
 #include "Template.h"
 
 using namespace std;
+
+//TODO: update code for working with square plate numbers
 
 atomic<bool> shutdownFlag = false;
 condition_variable shutdownEvent;
@@ -34,8 +30,12 @@ void signalHandler(int signum) {
 }
 
 int main(int argc, char *argv[]) {
+
+    char env[] = "CUDA_MODULE_LOADING=LAZY";
+    putenv(env);
+
     if (IMSHOW) {
-        char env[] = "DISPLAY=:1";
+        char env[] = "DISPLAY=:0";
         putenv(env);
     }
 
@@ -63,13 +63,12 @@ int main(int argc, char *argv[]) {
     auto allCameras = Config::getAllCameras();
     vector < shared_ptr < SharedQueue < unique_ptr < FrameData >> >> frameQueues;
 
-    auto vehicleDetectionEngine = make_shared<CarDetectionEngine>();
     auto detectionEngine = make_shared<DetectionEngine>();
+    std::unordered_map<std::string, Constants::CountryCode> templates;
+    if (Template::parseJson(templateFileName)) {
+        templates = Template::getTemplateMap();
+    }
     for (const auto &cameras: camerasVector) {
-        std::unordered_map<std::string, Constants::CountryCode> templates;
-        if (Template::parseJson(templateFileName)) {
-            templates = Template::getTemplateMap();
-        }
         auto lpRecognizerService = make_shared<LPRecognizerService>(packageQueue, cameras,
                                                                     Config::getRecognizerThreshold(),
                                                                     Config::getCalibrationSizes(),
@@ -77,54 +76,14 @@ int main(int argc, char *argv[]) {
         services.emplace_back(lpRecognizerService);
         for (const auto &camera: cameras) {
             auto frameQueue = make_shared < SharedQueue < unique_ptr < FrameData>>>();
-
-            if (camera.whatTypeOfRecognitionEnabled() == Constants::VehicleClassificationType::noType) {
-                auto detectionService = make_shared<DetectionService>(frameQueue, snapshotQueue,
-                                                                      make_unique<CarDetection>(
-                                                                              vehicleDetectionEngine->createExecutionContext()),
-                                                                      make_unique<VehicleRecognizer>(),
-                                                                      lpRecognizerService,
-                                                                      make_shared<Detection>(
-                                                                              detectionEngine->createExecutionContext(),
-                                                                              Config::getDetectorThreshold()),
-                                                                      camera, Config::getTimeSentSnapshots(),
-                                                                      Config::getCalibrationSizes());
-                services.emplace_back(detectionService);
-            } else if (camera.whatTypeOfRecognitionEnabled() == Constants::VehicleClassificationType::carType ||
-                       camera.whatTypeOfRecognitionEnabled() == Constants::VehicleClassificationType::baqordaType) {
-                auto mobilenetEngineV2 = make_shared<MobileNetV2>(camera.whatTypeOfRecognitionEnabled());
-
-                auto detectionService = make_shared<DetectionService>(frameQueue, snapshotQueue,
-                                                                      make_unique<CarDetection>(
-                                                                              vehicleDetectionEngine->createExecutionContext()),
-                                                                      make_unique<CarTypeClassifier>(
-                                                                              mobilenetEngineV2->createExecutionContext(),
-                                                                              camera.whatTypeOfRecognitionEnabled(),
-                                                                              camera.getDimensionCoords()),
-                                                                      lpRecognizerService,
-                                                                      make_shared<Detection>(
-                                                                              detectionEngine->createExecutionContext(),
-                                                                              Config::getDetectorThreshold()),
-                                                                      camera, Config::getTimeSentSnapshots(),
-                                                                      Config::getCalibrationSizes());
-                services.emplace_back(detectionService);
-            } else if (camera.whatTypeOfRecognitionEnabled() == Constants::VehicleClassificationType::modelType) {
-                auto mobilenetEngine = make_shared<MobileNet>();
-                auto detectionService = make_shared<DetectionService>(frameQueue, snapshotQueue,
-                                                                      make_unique<CarDetection>(
-                                                                              vehicleDetectionEngine->createExecutionContext()),
-                                                                      make_unique<MMCClassifier>(
-                                                                              mobilenetEngine->createExecutionContext(),
-                                                                              camera.whatTypeOfRecognitionEnabled(),
-                                                                              camera.getDimensionCoords()),
-                                                                      lpRecognizerService,
-                                                                      make_shared<Detection>(
-                                                                              detectionEngine->createExecutionContext(),
-                                                                              Config::getDetectorThreshold()),
-                                                                      camera, Config::getTimeSentSnapshots(),
-                                                                      Config::getCalibrationSizes());
-                services.emplace_back(detectionService);
-            }
+            auto detectionService = make_shared<DetectionService>(frameQueue, snapshotQueue,
+                                                                  lpRecognizerService,
+                                                                  make_shared<Detection>(
+                                                                          detectionEngine->createExecutionContext(),
+                                                                          Config::getDetectorThreshold()),
+                                                                  camera, Config::getTimeSentSnapshots(),
+                                                                  Config::getCalibrationSizes());
+            services.emplace_back(detectionService);
             frameQueues.push_back(std::move(frameQueue));
         }
     }

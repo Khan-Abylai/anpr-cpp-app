@@ -6,27 +6,26 @@ using namespace std;
 using json = nlohmann::json;
 
 Package::Package(string cameraIp, string licensePlateLabel, cv::Mat carImage, cv::Mat plateImage, string strBoundingBox,
-                 string carModel, basic_string<char> direction, std::string resultSendUrlParam,
-                 std::string secondaryResultSendUrlParam, bool secondaryResultSendUrlFlagParam, double realTimeOfEvent) : resultSendUrl{
+                 basic_string<char> direction, std::string resultSendUrlParam,
+                 std::string secondaryResultSendUrlParam, bool secondaryResultSendUrlFlagParam, double realTimeOfEvent)
+        : resultSendUrl{
         std::move(resultSendUrlParam)}, secondaryResultSendUrl{std::move(secondaryResultSendUrlParam)},
-                                                                                                  secondaryResultSendUrlFlag{
-                                                                                                          secondaryResultSendUrlFlagParam},
-                                                                                                  direction(std::move(
-                                                                                                          direction)),
-                                                                                                  carModel(std::move(
-                                                                                                          carModel)),
-                                                                                                  cameraIp(std::move(
-                                                                                                          cameraIp)),
-                                                                                                  licensePlateLabel(
-                                                                                                          std::move(
-                                                                                                                  licensePlateLabel)),
-                                                                                                  carImage(std::move(
-                                                                                                          carImage)),
-                                                                                                  plateImage(std::move(
-                                                                                                          plateImage)),
-                                                                                                  strBoundingBox(
-                                                                                                          std::move(
-                                                                                                                  strBoundingBox)), realTimeOfEvent{realTimeOfEvent} {
+          secondaryResultSendUrlFlag{
+                  secondaryResultSendUrlFlagParam},
+          direction(std::move(
+                  direction)),
+          cameraIp(std::move(
+                  cameraIp)),
+          licensePlateLabel(
+                  std::move(
+                          licensePlateLabel)),
+          carImage(std::move(
+                  carImage)),
+          plateImage(std::move(
+                  plateImage)),
+          strBoundingBox(
+                  std::move(
+                          strBoundingBox)), realTimeOfEvent{realTimeOfEvent} {
     eventTime = time_t(nullptr);
 };
 
@@ -47,10 +46,10 @@ string Package::getPackageJsonString() const {
     packageJson["ip_address"] = cameraIp;
     packageJson["event_time"] = Utils::dateTimeToStr(eventTime);
     packageJson["car_number"] = licensePlateLabel;
-    packageJson["car_picture"] = Utils::encodeImgToBase64(carImage, 90);
+    packageJson["car_picture"] = Utils::encodeImgToBase64(carImage, 25);
     packageJson["lp_picture"] = Utils::encodeImgToBase64(plateImage, 90);
     packageJson["lp_rect"] = strBoundingBox;
-    packageJson["car_model"] = carModel;
+    packageJson["car_model"] = "NotDefined";
     packageJson["direction"] = direction;
 
     return packageJson.dump();
@@ -64,11 +63,6 @@ const string &Package::getPlateLabel() const {
 const string &Package::getCameraIp() const {
     return cameraIp;
 }
-
-const std::string &Package::getCarModel() const {
-    return carModel;
-}
-
 
 const std::string &Package::getResultSendUrl() const {
     return resultSendUrl;
@@ -97,7 +91,7 @@ std::string Package::getLightweightPackageJsonString(string &imagePath, string &
     packageJson["car_number"] = licensePlateLabel;
     packageJson["lp_path"] = licensePlateImagePath;
     packageJson["image_path"] = imagePath;
-    packageJson["car_model"] = carModel;
+    packageJson["car_model"] = "NotDefined";
     packageJson["direction"] = direction;
 
     return packageJson.dump();

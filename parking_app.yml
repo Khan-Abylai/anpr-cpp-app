@@ -1,0 +1,17 @@
+services:
+  cpp-app:
+    container_name: cpp-app
+    command: ./cpp-app
+    environment:
+      - TZ=Asia/Almaty
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_MODULE_LOADING=LAZY
+    image: registry.infra.smartparking.kz/cpp-trt8:v2.1.0
+    restart: always
+    runtime: nvidia
+    volumes:
+      - ./config.json:/app/config.json
+    logging:
+      options:
+        max-size: 50m
+version: '2.3'

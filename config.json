@@ -1,22 +1,30 @@
 {
   "cameras": [
     {
-      "client_type": "simple",
-      "camera_ip": "10.66.40.21",
-      "rtsp_url": "rtsp://cvcvgtdjh64:JGfdgus53cvsu8@10.66.40.21:554/cam/realmonitor?channel=1&subtype=0",
-      "car_model_recognition": 0,
+      "camera_ip": "10.66.117.40",
+      "rtsp_url": "rtsp://admin:campas123.@10.66.117.40/media/video1",
+      "result_send_endpoint": "-",
+      "node_ip": "-",
+      "snapshot_send_ip": "-",
       "time_between_sent_plates": 5,
       "plates_count": 10,
-      "result_send_endpoint": "",
-      "node_ip": "https://10.66.40.4/rest/camera/getCalibrationByIp/",
-      "snapshot_send_ip": "",
+      "use_mask_2": 0
+    },
+    {
+      "camera_ip": "10.66.69.115",
+      "rtsp_url": "rtsp://admin:campas123.@10.66.69.115/media/video1",
+      "result_send_endpoint": "-",
+      "node_ip": "-",
+      "snapshot_send_ip": "-",
+      "time_between_sent_plates": 5,
+      "plates_count": 10,
       "use_mask_2": 0
     }
   ],
-  "time_between_snapshot_send": 1,
-  "rec_threshold": 0.8,
-  "det_threshold": 0.7,
+  "time_between_snapshot_send": 1.0,
+  "rec_threshold": 0.5,
+  "det_threshold": 0.5,
   "use_gpu_decode": 1,
-  "stat_interval": 1,
-  "image_writer": 0
+  "image_writer": 0,
+  "stat_interval": 1
 }

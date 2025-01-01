@@ -4,18 +4,15 @@ using namespace std;
 
 DetectionService::DetectionService(std::shared_ptr<SharedQueue<std::unique_ptr<FrameData>>> frameQueue,
                                    const shared_ptr<SharedQueue<std::shared_ptr<Snapshot>>> &snapshotQueue,
-                                   std::unique_ptr<CarDetection> vehicleDetection,
-                                   std::unique_ptr<VehicleRecognizer> vehicleRecognizer,
                                    std::shared_ptr<LPRecognizerService> lpRecognizerService,
                                    std::shared_ptr<Detection> detection, const CameraScope &cameraScope,
                                    float timeBetweenSendingSnapshots, std::pair<float, float> calibrationSizes)
         : ILogger("DetectionService"), frameQueue{std::move(frameQueue)}, snapshotQueue{snapshotQueue},
           detection{std::move(detection)}, USE_MASK_2{cameraScope.isUseMask2Flag()},
           timeBetweenSendingSnapshots{timeBetweenSendingSnapshots}, lpRecognizerService{std::move(lpRecognizerService)},
-          carDetection{std::move(vehicleDetection)}, vehicleRecognizer{std::move(vehicleRecognizer)},
           CALIBRATION_SIZES{calibrationSizes} {
 
-    if (USE_MASK_2 || cameraScope.whatTypeOfRecognitionEnabled() != Constants::VehicleClassificationType::noType) {
+    if (USE_MASK_2) {
         calibParams2 = make_shared<CalibParams>(cameraScope.getNodeIp(), cameraScope.getCameraIp(), calibrationSizes);
         calibParamsUpdater2 = make_unique<CalibParamsUpdater>(calibParams2);
         calibParamsUpdater2->run();
@@ -58,6 +55,7 @@ void DetectionService::run() {
         auto frame = frameData->getFrame();
         auto cameraScope = lpRecognizerService->getCameraScope(frameData->getIp());
         lastFrameRTPTimestamp = time(nullptr);
+
         if (lastFrameRTPTimestamp - lastTimeSnapshotSent >= timeBetweenSendingSnapshots &&
             !cameraScope.getSnapshotSendIp().empty()) {
             cv::Mat resizedFrame;
@@ -86,9 +84,6 @@ void DetectionService::run() {
 
         if (detectionResult.empty()) continue;
 
-//        pid_t pid = getpid(); // Получаем идентификатор текущего процесса
-//        int result = kill(pid, SIGTERM);
-
         auto licensePlate = chooseOneLicensePlate(detectionResult);
 
         licensePlate->setDetectionTime(
@@ -97,46 +92,13 @@ void DetectionService::run() {
 
         licensePlate->setPlateImage(frame);
         licensePlate->setCameraIp(frameData->getIp());
-
-
-        if (lpRecognizerService->getCameraScope(frameData->getIp()).whatTypeOfRecognitionEnabled() !=
-            Constants::VehicleClassificationType::noType) {
-            auto result = carDetection->carDetect(frame);
-            if (!result.empty()) {
-                auto centralPoint = licensePlate->getCenter();
-                bool flag = false;
-                for (const auto &res: result) {
-                    cv::Rect rRect(res->getTopLeft(), res->getBottomRight());
-                    rRect.x = max(rRect.x, 0);
-                    rRect.y = max(rRect.y, 0);
-                    rRect.width = min(frame.cols - 1 - rRect.x, rRect.width - 1);
-                    rRect.height = min(frame.rows - 1 - rRect.y, rRect.height - 1);
-                    if (rRect.contains(centralPoint) && centralPoint.y >= res->getCenter().y) {
-                        flag = true;
-                        cv::Mat vehicleImage = frame(rRect);
-                        licensePlate->setVehicleImage(std::move(vehicleImage));
-                        licensePlate->setCarBBoxFlag(true);
-                    }
-                }
-                if (!flag)licensePlate->setCarBBoxFlag(false);
-                result.clear();
-            } else {
-                licensePlate->setCarBBoxFlag(false);
-            }
-        } else {
-            licensePlate->setCarBBoxFlag(false);
-        }
-
         licensePlate->setCarImage(std::move(frame));
         licensePlate->setRTPtimestamp(frameData->getRTPtimestamp());
 
-        if (USE_MASK_2 || lpRecognizerService->getCameraScope(frameData->getIp()).whatTypeOfRecognitionEnabled() !=
-                          Constants::VehicleClassificationType::noType)
+        if (USE_MASK_2)
             if (!calibParams2->isLicensePlateInSelectedArea(licensePlate, "main")) {
                 continue;
             }
-
-
         licensePlate->setResultSendUrl(cameraScope.getResultSendIp());
         if (cameraScope.isUseSecondaryEndpoint()) {
             licensePlate->setSecondaryUrlEnabledFlag(true);
@@ -146,16 +108,6 @@ void DetectionService::run() {
         }
 
 
-        if (lpRecognizerService->getCameraScope(frameData->getIp()).whatTypeOfRecognitionEnabled() !=
-            Constants::VehicleClassificationType::noType) {
-            auto [carModel, prob] = vehicleRecognizer->classify(licensePlate);
-            licensePlate->setCarModel(carModel);
-            licensePlate->setCarModelProb(prob);
-        } else {
-            licensePlate->setCarModel("NotDefined");
-            licensePlate->setCarModelProb(0.0);
-        }
-        auto stop = 1;
         lpRecognizerService->addToQueue(std::move(licensePlate));
     }
 }

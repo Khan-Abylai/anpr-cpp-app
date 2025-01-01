@@ -20,12 +20,11 @@ public:
 
 private:
     bool useDirection;
-    Constants::VehicleClassificationType vehicleClassificationType;
     std::string originPoint;
     bool isForward;
-
     int platesCount;
     float timeBetweenResendingPlates;
+
     std::string cameraIp;
     std::shared_ptr<CalibParams> calibParams;
     std::unique_ptr<CalibParamsUpdater> calibParamsUpdater;

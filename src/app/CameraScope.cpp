@@ -8,11 +8,10 @@ CameraScope::CameraScope(const std::string &cameraIp, const std::string &rtspUrl
                          const std::string &nodeIp, const std::string &snapshotSentIp,
                          const std::string &secondaryResultSentEndpoint, bool useSecondaryEndpoint,
                          const std::string &secondarySnapshotSentEndpoint, bool useSecondarySnapshotEndpoint,
-                         Constants::VehicleClassificationType typeOfCarRecognition, float timeBetweenResendingPlates,
+                         float timeBetweenResendingPlates,
                          int platesCount,
                          bool useMask2,
-                         bool useDirection, const std::string &originPoint, bool isForward,
-                         DimensionCoords dimensionCoords) {
+                         bool useDirection, const std::string &originPoint, bool isForward) {
     this->cameraIp = cameraIp;
     this->rtspUrl = rtspUrl;
     this->resultSendIp = resultSentIp;
@@ -22,14 +21,12 @@ CameraScope::CameraScope(const std::string &cameraIp, const std::string &rtspUrl
     this->otherSnapshotSendEndpoint = secondarySnapshotSentEndpoint;
     this->useSecondaryEndpoint = useSecondaryEndpoint;
     this->useSecondarySnapshotEndpoint = useSecondarySnapshotEndpoint;
-    this->vehicleClassificationType = typeOfCarRecognition;
     this->timeBetweenResendingPlates = timeBetweenResendingPlates;
     this->platesCount = platesCount;
     this->useMask2Flag = useMask2;
     this->useDirectionFlag = useDirection;
     this->originPoint = originPoint;
     this->isForwardFlag = isForward;
-    this->COORDS = dimensionCoords;
 }
 
 const std::string &CameraScope::getCameraIp() const {
@@ -72,7 +69,6 @@ bool CameraScope::isUseSecondarySnapshotEndpoint() const {
     return useSecondarySnapshotEndpoint;
 }
 
-
 bool CameraScope::isUseMask2Flag() const {
     return useMask2Flag;
 }
@@ -91,12 +87,4 @@ float CameraScope::getTimeBetweenResendingPlates() const {
 
 int CameraScope::getPlatesCount() const {
     return platesCount;
-}
-
-DimensionCoords CameraScope::getDimensionCoords() const {
-    return COORDS;
-}
-
-Constants::VehicleClassificationType CameraScope::whatTypeOfRecognitionEnabled() const {
-    return vehicleClassificationType;
 }

@@ -4,7 +4,7 @@
 #include "../ILogger.h"
 #include "CalibParams.h"
 
-class CalibParamsUpdater : public IThreadLauncher, public ILogger {
+class CalibParamsUpdater : public IThreadLauncher, public ::ILogger {
 public:
     explicit CalibParamsUpdater(std::shared_ptr<CalibParams> calibParams);
 

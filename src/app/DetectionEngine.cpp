@@ -20,8 +20,9 @@ DetectionEngine::DetectionEngine() {
 
 void DetectionEngine::createEngine() {
 
-    TrtLogger trt_logger;
-    auto builder = unique_ptr<IBuilder, TensorRTDeleter>(createInferBuilder(trt_logger), TensorRTDeleter());
+
+    auto builder = unique_ptr<IBuilder, TensorRTDeleter>(createInferBuilder(TensorRTEngine::getLogger()),
+                                                         TensorRTDeleter());
 
     vector<float> weights;
     ifstream weightFile(Constants::modelWeightsFolder + WEIGHTS_FILENAME, ios::binary);
@@ -62,10 +63,10 @@ void DetectionEngine::createEngine() {
             Weights convBias{DataType::kFLOAT, &weights[index], convBiasesCount};
             index += convBiasesCount;
 
-            auto convLayer = network->addConvolution(*prevLayer, channels[channelIndex], kernelSize, convWeights,
+            auto convLayer = network->addConvolutionNd(*prevLayer, channels[channelIndex], kernelSize, convWeights,
                                                      convBias);
-            convLayer->setStride(DimsHW{1, 1});
-            convLayer->setPadding(DimsHW{1, 1});
+            convLayer->setStrideNd(DimsHW{1, 1});
+            convLayer->setPaddingNd(DimsHW{1, 1});
 
             for (int channel = 0; channel < channels[channelIndex]; channel++) {
 
@@ -98,7 +99,7 @@ void DetectionEngine::createEngine() {
         }
         if (channelIndex < channels.size() - 1) {
             auto poolLayer = network->addPooling(*prevLayer, PoolingType::kMAX, DimsHW{2, 2});
-            poolLayer->setStride(DimsHW{2, 2});
+            poolLayer->setStrideNd(DimsHW{2, 2});
             prevLayer = poolLayer->getOutput(0);
         }
     }
@@ -115,7 +116,7 @@ void DetectionEngine::createEngine() {
         Weights convBias{DataType::kFLOAT, &weights[index], convBiasesCount};
         index += convBiasesCount;
 
-        auto convLayer = network->addConvolution(*prevLayer, COORDINATE_SIZES[channelIndex],
+        auto convLayer = network->addConvolutionNd(*prevLayer, COORDINATE_SIZES[channelIndex],
                                                  DimsHW{1, 1}, convWeights, convBias);
 
         convLayer->getOutput(0)->setName(NETWORK_OUTPUT_NAMES[channelIndex].c_str());

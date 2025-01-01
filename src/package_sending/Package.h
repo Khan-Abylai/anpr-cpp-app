@@ -11,7 +11,7 @@
 class Package : public ITimer {
 public:
     Package(std::string cameraIp, std::string licensePlateLabel, cv::Mat carImage, cv::Mat plateImage,
-            std::string strBoundingBox, std::string carModel, std::basic_string<char> direction,
+            std::string strBoundingBox, std::basic_string<char> direction,
             std::string resultSendUrlParam, std::string secondaryResultSendUrlParam,
             bool secondaryResultSendUrlFlagParam, double realTimeOfEvent);
 
@@ -22,8 +22,6 @@ public:
     [[nodiscard]] const std::string &getCameraIp() const;
 
     static std::string convertBoundingBoxToStr(const std::shared_ptr<LicensePlate> &licensePlate);
-
-    [[nodiscard]] const std::string &getCarModel() const;
 
     [[nodiscard]] const std::string &getResultSendUrl() const;
 
@@ -44,7 +42,6 @@ private:
     std::string resultSendUrl, secondaryResultSendUrl;
     bool secondaryResultSendUrlFlag;
     std::string direction;
-    std::string carModel;
     std::string cameraIp;
     time_t eventTime;
     std::string licensePlateLabel;

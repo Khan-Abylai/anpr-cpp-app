@@ -11,11 +11,12 @@ LPRecognizer::LPRecognizer() {
     }
 
     engine = TensorRTEngine::readEngine(ENGINE_NAME);
-    dimensions.resize(MAX_BATCH_SIZE * SEQUENCE_SIZE, (int)ALPHABET.size());
+    dimensions.resize(MAX_BATCH_SIZE * SEQUENCE_SIZE, ALPHABET.size());
 
     cudaMalloc(&cudaBuffer[0], MAX_BATCH_SIZE * INPUT_SIZE * sizeof(float));
     cudaMalloc(&cudaBuffer[1], MAX_BATCH_SIZE * SEQUENCE_SIZE * sizeof(int));
     cudaMalloc(&cudaBuffer[2], MAX_BATCH_SIZE * OUTPUT_SIZE * sizeof(float));
+    // cudaMalloc(&cudaBuffer[3], MAX_BATCH_SIZE * OUTPUT_2_SIZE * sizeof(float));
 
     cudaMemcpy(cudaBuffer[1], dimensions.data(), MAX_BATCH_SIZE * SEQUENCE_SIZE * sizeof(int),
                cudaMemcpyHostToDevice);
@@ -30,14 +31,14 @@ LPRecognizer::~LPRecognizer() {
     cudaFree(cudaBuffer[0]);
     cudaFree(cudaBuffer[1]);
     cudaFree(cudaBuffer[2]);
+    // cudaFree(cudaBuffer[3]);
     cudaStreamDestroy(stream);
 }
 
 void LPRecognizer::createEngine() {
 
-    TrtLogger trt_logger;
-
-    auto builder = unique_ptr<IBuilder, TensorRTDeleter>(createInferBuilder(trt_logger), TensorRTDeleter());
+    auto builder = unique_ptr<IBuilder, TensorRTDeleter>(createInferBuilder(TensorRTEngine::getLogger()),
+                                                         TensorRTDeleter());
 
     vector<float> weights;
     ifstream weightFile(Constants::modelWeightsFolder + WEIGHTS_FILENAME, ios::binary);
@@ -113,7 +114,7 @@ void LPRecognizer::createEngine() {
             prevLayer = poolLayer->getOutput(0);
         }
     }
-
+    auto size = prevLayer->getDimensions();
     IShuffleLayer *shuffle = network->addShuffle(*prevLayer);
     shuffle->setReshapeDimensions(Dims2{prevLayer->getDimensions().d[0] * prevLayer->getDimensions().d[1],
                                         prevLayer->getDimensions().d[2]});
@@ -145,59 +146,113 @@ void LPRecognizer::createEngine() {
 
     prevLayer = network->addActivation(*addBias->getOutput(0), ActivationType::kRELU)->getOutput(0);
 
+    auto newShuffle = network->addShuffle(*prevLayer);
+    newShuffle->setReshapeDimensions(Dims3{prevLayer->getDimensions().d[0] * prevLayer->getDimensions().d[1], 1, 1});
+
+    // auto CountryClsWeights = Weights{DataType::kFLOAT, &weights[index],
+    //                                  prevLayer->getDimensions().d[0] * prevLayer->getDimensions().d[1] * REGION_SIZE};
+    // index += prevLayer->getDimensions().d[0] * prevLayer->getDimensions().d[1] * REGION_SIZE;
+
+    // auto CountryClsBias = Weights{DataType::kFLOAT, &weights[index], REGION_SIZE};
+    // index += REGION_SIZE;
+    // auto CountryLayer = network->addFullyConnected(
+    //         *newShuffle->getOutput(0), REGION_SIZE,
+    //         CountryClsWeights, CountryClsBias
+    // );
+
+    int lstmLayerCount = 2;
+
     int lstmInputSize = hiddenSize;
-    IRNNv2Layer *lstm = network->addRNNv2(*prevLayer, 1, hiddenSize, SEQUENCE_SIZE, RNNOperation::kLSTM);
+    IRNNv2Layer *lstm = network->addRNNv2(*prevLayer, lstmLayerCount, hiddenSize, SEQUENCE_SIZE, RNNOperation::kLSTM);
     vector<RNNGateType> gates{RNNGateType::kINPUT, RNNGateType::kFORGET, RNNGateType::kCELL,
                               RNNGateType::kOUTPUT};
-
+    lstm->setDirection(nvinfer1::RNNDirection::kBIDIRECTION);
     int hidden2 = (int) pow(hiddenSize, 2);
     int hidden22 = lstmInputSize * hiddenSize;
 
-    for (int i = 0; i < gates.size(); i++) {
-        lstm->setWeightsForGate(0, gates[i], true,
-                                Weights{DataType::kFLOAT, &weights[index + i * hidden22], hidden22});
-    }
-    index +=  lstmInputSize * gates.size() * hiddenSize;
 
-    for (int i = 0; i < gates.size(); i++) {
-        lstm->setWeightsForGate(0, gates[i], false,
-                                Weights{DataType::kFLOAT, &weights[index + i * hidden2], hidden2});
-    }
-    index += hiddenSize * gates.size() * hiddenSize;
+    for (int layerIndex = 0; layerIndex < lstmLayerCount; ++layerIndex) {
+        int rela_index = 2 * layerIndex;
+        int iw_count;
+        if (layerIndex == 1)
+            iw_count = hidden22 * 2;
+        else
+            iw_count = hidden22;
+        for (int i = 0; i < gates.size(); ++i) {
 
-    for (int i = 0; i < gates.size(); i++) {
-        lstm->setBiasForGate(0, gates[i], true,
-                             Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
-    }
-    index += hiddenSize * gates.size();
+            lstm->setWeightsForGate(rela_index, gates[i], true,
+                                    Weights{DataType::kFLOAT, &weights[index + i * iw_count], iw_count});
+        }
+        index += gates.size() * iw_count;
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setWeightsForGate(rela_index, gates[i], false,
+                                    Weights{DataType::kFLOAT, &weights[index + i * hidden2], hidden2});
+        }
+        index += hiddenSize * gates.size() * hiddenSize;
 
-    for (int i = 0; i < gates.size(); i++) {
-        lstm->setBiasForGate(0, gates[i], false,
-                             Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
-    }
-    index += hiddenSize * gates.size();
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setBiasForGate(rela_index, gates[i], true,
+                                 Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
+        }
+        index += hiddenSize * gates.size();
 
-    Dims embeddingShape2 = Dims2(ALPHABET_SIZE, hiddenSize);
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setBiasForGate(rela_index, gates[i], false,
+                                 Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
+        }
+        index += hiddenSize * gates.size();
+
+
+        rela_index = 2 * layerIndex + 1;
+
+        for (int i = 0; i < gates.size(); ++i) {
+
+            lstm->setWeightsForGate(rela_index, gates[i], true,
+                                    Weights{DataType::kFLOAT, &weights[index + i * iw_count], iw_count});
+        }
+        index += gates.size() * iw_count;
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setWeightsForGate(rela_index, gates[i], false,
+                                    Weights{DataType::kFLOAT, &weights[index + i * hidden2], hidden2});
+        }
+        index += hiddenSize * gates.size() * hiddenSize;
+
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setBiasForGate(rela_index, gates[i], true,
+                                 Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
+        }
+        index += hiddenSize * gates.size();
+
+        for (int i = 0; i < gates.size(); i++) {
+            lstm->setBiasForGate(rela_index, gates[i], false,
+                                 Weights{DataType::kFLOAT, &weights[index + i * hiddenSize], hiddenSize});
+        }
+        index += hiddenSize * gates.size();
+
+    }
+
+    Dims embeddingShape2 = Dims2(ALPHABET_SIZE, hiddenSize * 2);
     Weights embeddingWeights2{DataType::kFLOAT, &weights[index], embeddingShape2.d[0] * embeddingShape2.d[1]};
     index += embeddingShape2.d[0] * embeddingShape2.d[1];
-
     IConstantLayer *embedding2 = network->addConstant(embeddingShape2, embeddingWeights2);
     IMatrixMultiplyLayer *matrixMultiplication2 = network->addMatrixMultiply(*lstm->getOutput(0),
                                                                              MatrixOperation::kNONE,
                                                                              *embedding2->getOutput(0),
                                                                              MatrixOperation::kTRANSPOSE);
-
     Dims embeddingBiasShape2 = Dims2(1, ALPHABET_SIZE);
-    auto embeddingBiasWeights2 = Weights{DataType::kFLOAT, &weights[index], ALPHABET_SIZE};
+    Weights embeddingBiasWeights2 = Weights{DataType::kFLOAT, &weights[index], ALPHABET_SIZE};
 
     IConstantLayer *bias2 = network->addConstant(embeddingBiasShape2, embeddingBiasWeights2);
     IElementWiseLayer *addBias2 = network->addElementWise(*matrixMultiplication2->getOutput(0), *bias2->getOutput(0),
                                                           ElementWiseOperation::kSUM);
 
-    ITensor *dimensionsLayer = network->addInput(NETWORK_DIM_NAME.c_str(), DataType::kINT32, Dims2(SEQUENCE_SIZE, 1));
-    IRaggedSoftMaxLayer *softmax = network->addRaggedSoftMax(*addBias2->getOutput(0), *dimensionsLayer);
+    ITensor *dimensions = network->addInput(NETWORK_DIM_NAME.c_str(), DataType::kINT32, Dims2(SEQUENCE_SIZE, 1));
+    IRaggedSoftMaxLayer *softmax = network->addRaggedSoftMax(*addBias2->getOutput(0), *dimensions);
 
-    softmax->getOutput(0)->setName(NETWORK_OUTPUT_NAME.c_str());
+    // ISoftMaxLayer *countrySoftmax = network->addSoftMax(*CountryLayer->getOutput(0));
+
+
+    // network->markOutput(*countrySoftmax->getOutput(0));
     network->markOutput(*softmax->getOutput(0));
 
     unique_ptr<IBuilderConfig, TensorRTDeleter> builderConfig(builder->createBuilderConfig(), TensorRTDeleter());
@@ -208,9 +263,9 @@ void LPRecognizer::createEngine() {
     engine = builder->buildEngineWithConfig(*network, *builderConfig);
 }
 
-vector<float> LPRecognizer::prepareImage(const vector<cv::Mat> &frames) const {
+vector<float> LPRecognizer::prepareImage(const vector<cv::Mat> &frames)  {
 
-    int batchSize =(int) frames.size();
+    int batchSize = frames.size();
 
     vector<float> flattenedImage;
     flattenedImage.resize(batchSize * INPUT_SIZE);
@@ -236,40 +291,23 @@ vector<float> LPRecognizer::prepareImage(const vector<cv::Mat> &frames) const {
         }
     }
 
-    return std::move(flattenedImage);
+    return move(flattenedImage);
 }
 
-vector<float> LPRecognizer::executeEngine(const vector<cv::Mat> &frames) {
+std::tuple<std::string, double> LPRecognizer::makePrediction(const vector<cv::Mat> &frames) {
 
-    auto flattenedImages = prepareImage(frames);
+    int batchSize = frames.size();
 
-    int batchSize = (int)frames.size();
+    auto predictions = executeInferEngine(frames);
 
-    vector<float> predictions;
-    predictions.resize(batchSize * OUTPUT_SIZE);
+    // auto clsPredictions = engineExecResult.first;
+    // auto predictions = engineExecResult.second;
 
-    cudaMemcpyAsync(cudaBuffer[0], flattenedImages.data(), batchSize * INPUT_SIZE * sizeof(float),
-                    cudaMemcpyHostToDevice, stream);
-
-    executionContext->enqueue(batchSize, cudaBuffer, stream, nullptr);
-
-    cudaMemcpyAsync(predictions.data(), cudaBuffer[2], batchSize * OUTPUT_SIZE * sizeof(float),
-                    cudaMemcpyDeviceToHost, stream);
-
-    cudaStreamSynchronize(stream);
-
-    return std::move(predictions);
-}
-
-vector<pair<string, float>> LPRecognizer::predict(const vector<cv::Mat> &frames) {
-
-    int batchSize = (int)frames.size();
-    auto predictions = executeEngine(frames);
-
-    vector<pair<string, float>> labels;
+    tuple<string, float> label;
 
     for (int batchIndex = 0; batchIndex < batchSize; batchIndex++) {
-        float prob = 1.0;
+
+        double prob = 1.0;
         string currentLabel;
         currentLabel.reserve(MAX_PLATE_SIZE);
 
@@ -309,8 +347,32 @@ vector<pair<string, float>> LPRecognizer::predict(const vector<cv::Mat> &frames)
             currentLabel += ALPHABET[BLANK_INDEX];
             prob = 0.0;
         }
-
-        labels.emplace_back(currentLabel, prob);
+        // int maxElementIndex = std::max_element(clsPredictions.begin(), clsPredictions.end()) - clsPredictions.begin();
+        label = make_tuple(currentLabel, prob);
     }
-    return labels;
+
+    return label;
+}
+
+std::vector<float> LPRecognizer::executeInferEngine(const vector<cv::Mat> &frames) {
+    auto flattenedImages = prepareImage(frames);
+    auto stop = 1;
+    int batchSize = frames.size();
+
+    vector<float> predictions;//, predictions2;
+    predictions.resize(batchSize * OUTPUT_SIZE);
+    // predictions2.resize(batchSize * OUTPUT_2_SIZE);
+
+    cudaMemcpyAsync(cudaBuffer[0], flattenedImages.data(), batchSize * INPUT_SIZE * sizeof(float),
+                    cudaMemcpyHostToDevice, stream);
+
+    executionContext->enqueue(batchSize, cudaBuffer, stream, nullptr);
+
+    cudaMemcpyAsync(predictions.data(), cudaBuffer[2], batchSize * OUTPUT_SIZE * sizeof(float),
+                    cudaMemcpyDeviceToHost, stream);
+    // cudaMemcpyAsync(predictions2.data(), cudaBuffer[3], batchSize * OUTPUT_2_SIZE * sizeof(float),
+    //                 cudaMemcpyDeviceToHost, stream);
+
+    cudaStreamSynchronize(stream);
+    return predictions;
 }

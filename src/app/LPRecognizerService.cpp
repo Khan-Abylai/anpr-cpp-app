@@ -3,24 +3,28 @@
 using namespace std;
 
 
-LPRecognizerService::LPRecognizerService(const shared_ptr<SharedQueue<std::shared_ptr<Package>>> &packageQueue,
+LPRecognizerService::LPRecognizerService(const shared_ptr<SharedQueue<std::shared_ptr<Package> > > &packageQueue,
                                          const vector<CameraScope> &cameras, float recognizerThreshold,
                                          pair<float, float> calibrationSizes, int statInterval,
                                          const std::unordered_map<std::string, Constants::CountryCode> &templates)
         : ILogger(
         "LP Recognizer Service "),
           RECOGNIZER_THRESHOLD{
-                  recognizerThreshold},
+                  recognizerThreshold
+          },
           cameraScopeVector{
-                  cameras},
+                  cameras
+          },
           waitMinutes{
-                  statInterval} {
+                  statInterval
+          } {
     initializeCameraIpCarTrackerMap(packageQueue, cameras, calibrationSizes);
 
-    lpQueue = make_unique<SharedQueue<shared_ptr<LicensePlate>>>();
+    lpQueue = make_unique<SharedQueue<shared_ptr<LicensePlate> > >();
     lpRecognizer = make_unique<LPRecognizer>();
     templateMatching = make_unique<TemplateMatching>(templates);
     backgroundThread = thread(&LPRecognizerService::checkCurrentPlatesStatus, this);
+
     for (const auto &camera: cameras) {
         cameraToNotValidByPatternPlatesCount.insert({camera.getCameraIp(), 0});
         cameraToNotValidByConfPlatesCount.insert({camera.getCameraIp(), 0});
@@ -42,7 +46,7 @@ LPRecognizerService::LPRecognizerService(const shared_ptr<SharedQueue<std::share
 }
 
 void LPRecognizerService::initializeCameraIpCarTrackerMap(
-        const shared_ptr<SharedQueue<std::shared_ptr<Package>>> &packageQueue, const vector<CameraScope> &cameras,
+        const shared_ptr<SharedQueue<std::shared_ptr<Package> > > &packageQueue, const vector<CameraScope> &cameras,
         pair<float, float> calibrationSizes) {
     for (const auto &camera: cameras) {
         unique_ptr<BaseCarTracker> carTracker;
@@ -59,31 +63,18 @@ void LPRecognizerService::addToQueue(shared_ptr<LicensePlate> licensePlate) {
 }
 
 bool LPRecognizerService::isValidLicensePlate(const string &lpLabel, float probability) {
-    auto stop = 1;
     auto plateCountry = templateMatching->getCountryCode(lpLabel);
     auto isTemplateMatched = plateCountry != Constants::UNIDENTIFIED_COUNTRY;
     return probability > RECOGNIZER_THRESHOLD && isTemplateMatched;
 }
 
 pair<string, float>
-LPRecognizerService::getLicensePlateLabel(const vector<pair<string, float>> &recognizerResult, bool isSquarePlate) {
+LPRecognizerService::getLicensePlateLabel(const vector<pair<string, float> > &recognizerResult, bool isSquarePlate) {
     float probability;
     string licensePlateLabel;
-    if (isSquarePlate) {
-        string label = recognizerResult.front().first;
-        string sep = ".";
-        vector<string> parts = string_split(label, '.');
+    licensePlateLabel = recognizerResult.front().first;
+    probability = recognizerResult.front().second;
 
-        if (parts.size() == 2) {
-            licensePlateLabel = templateMatching->processSquareLicensePlate(parts[0], parts[1]);
-        } else {
-            licensePlateLabel = label;
-        }
-        probability = recognizerResult.front().second;
-    } else {
-        licensePlateLabel = recognizerResult.front().first;
-        probability = recognizerResult.front().second;
-    }
     return make_pair(licensePlateLabel, probability);
 }
 
@@ -93,19 +84,6 @@ void LPRecognizerService::addPlateToTrack(const shared_ptr<LicensePlate> &licens
     auto event = cameraIpToCarTrackerMap.find(cameraIp);
     if (event != cameraIpToCarTrackerMap.end())
         event->second->track(licensePlate);
-}
-
-
-pair<cv::Mat, cv::Mat> LPRecognizerService::divideImageIntoHalf(const cv::Mat &lpImage) {
-    lpImage(cv::Rect(0, 0, Constants::SQUARE_LP_W, Constants::SQUARE_LP_H / 2)).copyTo(
-            whiteImage.colRange(0, Constants::SQUARE_LP_W).rowRange(0, Constants::RECT_LP_H));
-    auto firstHalf = whiteImage.clone();
-
-    lpImage(cv::Rect(0, Constants::SQUARE_LP_H / 2, Constants::SQUARE_LP_W, Constants::SQUARE_LP_H / 2)).copyTo(
-            whiteImage.colRange(0, Constants::SQUARE_LP_W).rowRange(0, Constants::RECT_LP_H));
-    auto secondHalf = whiteImage.clone();
-
-    return make_pair(firstHalf, secondHalf);
 }
 
 vector<cv::Mat> LPRecognizerService::getLicensePlateImages(const shared_ptr<LicensePlate> &licensePlate) {
@@ -125,12 +103,12 @@ void LPRecognizerService::run() {
         if (licensePlate == nullptr) continue;
         vector<cv::Mat> lpImages = getLicensePlateImages(licensePlate);
         auto startTime = chrono::high_resolution_clock::now();
-        auto recognizerResult = lpRecognizer->predict(lpImages);
-        auto endTime = chrono::high_resolution_clock::now();
+        auto recognizerResult = lpRecognizer->makePrediction(lpImages);
+        auto [licensePlateLabel, probability] = recognizerResult;
 
+        auto endTime = chrono::high_resolution_clock::now();
         licensePlate->setRecognizerTime((double) chrono::duration_cast<chrono::milliseconds>(endTime - startTime).count());
-        auto stop = 1;
-        auto [licensePlateLabel, probability] = getLicensePlateLabel(recognizerResult, licensePlate->isSquare());
+
 
         bool isValid = isValidLicensePlate(licensePlateLabel, probability);
         cameraToOverallPlatesCount.at(licensePlate->getCameraIp()) += 1;
@@ -158,16 +136,6 @@ void LPRecognizerService::run() {
         for_each(licensePlateLabel.begin(), licensePlateLabel.end(), Utils::convert());
 
 
-        if (DEBUG && IMSHOW) {
-            cv::Mat displayImage;
-            cv::resize(licensePlate->getPlateImage(), displayImage,
-                       cv::Size(licensePlate->getPlateImage().cols * 3.5, licensePlate->getPlateImage().rows * 3.5), 0,
-                       0);
-            cv::imshow(licensePlate->getCameraIp() + "_licensePlate", displayImage);
-            cv::waitKey(60);
-        }
-
-
         cameraIpToPlateWhitenessSum.at(licensePlate->getCameraIp()) += (int) licensePlate->getWhiteness();
         cameraIpToPlateDFTSharpnessSum.at(licensePlate->getCameraIp()) += (int) licensePlate->getDFTSharpness();
         cameraIpToPlateLaplacianSharpnessSum.at(licensePlate->getCameraIp()) += (int) licensePlate->getSharpness();
@@ -186,10 +154,7 @@ void LPRecognizerService::run() {
 
         licensePlate->setLicensePlateLabel(std::move(licensePlateLabel));
 
-
         addPlateToTrack(licensePlate);
-
-
     }
 }
 
@@ -201,7 +166,6 @@ CameraScope LPRecognizerService::getCameraScope(const string &cameraIp) const {
             index = i;
     }
     return cameraScopeVector[index];
-
 }
 
 void LPRecognizerService::shutdown() {
@@ -336,14 +300,11 @@ double LPRecognizerService::median(vector<double> &nums) {
 }
 
 cv::Mat LPRecognizerService::combineInOneLineSquareLpPlate(const cv::Mat &lpImage) {
-    auto blackImage = cv::Mat(Constants::RECT_LP_H, Constants::BLACK_IMG_WIDTH, CV_8UC3,
-                              cv::Scalar(0, 0, 0));
-    auto topHalf = lpImage(cv::Rect(0, 0, Constants::SQUARE_LP_W, Constants::SQUARE_LP_H / 2));
-    auto bottomHalf = lpImage(cv::Rect(0, Constants::SQUARE_LP_H / 2, Constants::SQUARE_LP_W,
-                                       Constants::SQUARE_LP_H / 2));
+    auto topHalf = lpImage(cv::Rect(0, 0, Constants::EXTENDED_SQUARE_LP_W, Constants::EXTENDED_SQUARE_LP_H / 2));
+    auto bottomHalf = lpImage(cv::Rect(0, Constants::EXTENDED_SQUARE_LP_H / 2, Constants::EXTENDED_SQUARE_LP_W,
+                                       Constants::EXTENDED_SQUARE_LP_H / 2));
 
-    cv::Mat combinedPlateImage; // combining top and bottom half of square lp in one line
-    cv::hconcat(topHalf, blackImage, topHalf);
+    cv::Mat combinedPlateImage;
     cv::hconcat(topHalf, bottomHalf, combinedPlateImage);
     return combinedPlateImage;
 }

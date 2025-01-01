@@ -7,8 +7,8 @@ CalibParams::CalibParams(const string &serverIp, const string &cameraIp,
                          pair<float, float> calibrationSizes) : ILogger("Calib Params " + cameraIp),
                                                                 cameraIp(cameraIp) {
 
-    FRAME_WIDTH_HD = calibrationSizes.first;
-    FRAME_HEIGHT_HD = calibrationSizes.second;
+    CALIBRATION_FRAME_WIDTH = calibrationSizes.first;
+    CALIBRATION_FRAME_HEIGHT = calibrationSizes.second;
     calibParamsUrl = serverIp + cameraIp;
     LOG_INFO("Calibration Parameter Url : %s", calibParamsUrl.c_str());
     getMask();
@@ -20,8 +20,8 @@ void CalibParams::getMask() {
     auto subPolygonPoints = getPolygonPoints(responseText, "mask");
 
     lock_guard<mutex> guard(maskAccessChangeMutex);
-    mask = cv::Mat::zeros((int) FRAME_HEIGHT_HD, (int) FRAME_WIDTH_HD, CV_8UC1);
-    mask2 = cv::Mat::zeros((int) FRAME_HEIGHT_HD, (int) FRAME_WIDTH_HD, CV_8UC1);
+    mask = cv::Mat::zeros((int) CALIBRATION_FRAME_HEIGHT, (int) CALIBRATION_FRAME_WIDTH, CV_8UC1);
+    mask2 = cv::Mat::zeros((int) CALIBRATION_FRAME_HEIGHT, (int) CALIBRATION_FRAME_WIDTH, CV_8UC1);
 
     cv::fillConvexPoly(mask, polygonPoints, WHITE_COLOR);
     cv::fillConvexPoly(mask2, subPolygonPoints, WHITE_COLOR);
@@ -51,8 +51,8 @@ string CalibParams::sendRequestForMaskPoints() {
 }
 
 cv::Point2i CalibParams::getRelatedPoint(const cv::Point2f &point, const cv::Size &imageSize) const {
-    auto xPoint = (point.x * FRAME_WIDTH_HD) / (float) imageSize.width;
-    auto yPoint = (point.y * FRAME_HEIGHT_HD) / (float) imageSize.height;
+    auto xPoint = (point.x * CALIBRATION_FRAME_WIDTH) / (float) imageSize.width;
+    auto yPoint = (point.y * CALIBRATION_FRAME_HEIGHT) / (float) imageSize.height;
     return cv::Point2i{(int) xPoint, (int) yPoint};
 }
 
@@ -63,11 +63,7 @@ bool CalibParams::isPointInTheMask(const cv::Point2i &point) {
 
 bool
 CalibParams::isLicensePlateInSelectedArea(const shared_ptr<LicensePlate> &licensePlate, const std::string &maskType) {
-    auto yPointInGround = (float) (licensePlate->getCenter().y);
-
-    cv::Point2f centerPointInGround{static_cast<float>(licensePlate->getCenter().x), yPointInGround};
-
-    if (IMSHOW && MORE_LOGS) showCenterPointInGround(licensePlate, centerPointInGround);
+    cv::Point2f centerPointInGround{static_cast<float>(licensePlate->getCenter().x), (float) (licensePlate->getCenter().y)};
 
     auto centerPointHd = getRelatedPoint(centerPointInGround, licensePlate->getCarImageSize());
 
@@ -102,20 +98,12 @@ std::vector<cv::Point2i> CalibParams::getDefaultPolygonPoints() const {
     vector<cv::Point2i> polygonPoints;
 
     polygonPoints.emplace_back(0, 0);
-    polygonPoints.emplace_back(static_cast<int>(FRAME_WIDTH_HD), 0);
-    polygonPoints.emplace_back(static_cast<int>(FRAME_WIDTH_HD), static_cast<int>(FRAME_HEIGHT_HD));
-    polygonPoints.emplace_back(0, static_cast<int>(FRAME_HEIGHT_HD));
+    polygonPoints.emplace_back(static_cast<int>(CALIBRATION_FRAME_WIDTH), 0);
+    polygonPoints.emplace_back(static_cast<int>(CALIBRATION_FRAME_WIDTH), static_cast<int>(CALIBRATION_FRAME_HEIGHT));
+    polygonPoints.emplace_back(0, static_cast<int>(CALIBRATION_FRAME_HEIGHT));
 
     return polygonPoints;
 }
 
-
-float CalibParams::getFrameWidth() const {
-    return FRAME_WIDTH_HD;
-}
-
-float CalibParams::getFrameHeight() const {
-    return FRAME_HEIGHT_HD;
-}
 
 

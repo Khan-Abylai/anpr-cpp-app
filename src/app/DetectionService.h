@@ -12,15 +12,11 @@
 #include "LPRecognizerService.h"
 #include "../RandomStringGenerator.h"
 #include "../package_sending/Snapshot.h"
-#include "../vehicle_detector/CarDetection.h"
-#include "../car_model/VehicleRecognizer.h"
 
-class DetectionService : public IThreadLauncher, public ILogger {
+class DetectionService : public IThreadLauncher, public ::ILogger {
 public:
     DetectionService(std::shared_ptr<SharedQueue<std::unique_ptr<FrameData>>> frameQueue,
                      const std::shared_ptr<SharedQueue<std::shared_ptr<Snapshot>>> &snapshotQueue,
-                     std::unique_ptr<CarDetection> vehicleDetection,
-                     std::unique_ptr<VehicleRecognizer> vehicleRecognizer,
                      std::shared_ptr<LPRecognizerService> lpRecognizerService,
                      std::shared_ptr<Detection> detection,
                      const CameraScope &cameraScope,
@@ -58,9 +54,6 @@ private:
 
     static std::shared_ptr<LicensePlate>
     chooseOneLicensePlate(std::vector<std::shared_ptr<LicensePlate>> &licensePlates);
-
-    std::unique_ptr<CarDetection> carDetection;
-    std::unique_ptr<VehicleRecognizer> vehicleRecognizer;
 
 };
 

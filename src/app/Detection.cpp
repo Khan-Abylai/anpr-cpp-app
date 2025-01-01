@@ -44,9 +44,9 @@ Detection::getLicensePlates(vector<float> lpPredictions, int frameWidth, int fra
                                                       col])) + row) *
                           scaleHeight;
 
-                float w = exp(lpPredictions[2 * PLATE_GRID_WIDTH * PLATE_GRID_HEIGHT + row * PLATE_GRID_HEIGHT + col]) *
+                float _ = exp(lpPredictions[2 * PLATE_GRID_WIDTH * PLATE_GRID_HEIGHT + row * PLATE_GRID_HEIGHT + col]) *
                           scaleWidth;
-                float h = exp(lpPredictions[3 * PLATE_GRID_WIDTH * PLATE_GRID_HEIGHT + row * PLATE_GRID_HEIGHT + col]) *
+                float __ = exp(lpPredictions[3 * PLATE_GRID_WIDTH * PLATE_GRID_HEIGHT + row * PLATE_GRID_HEIGHT + col]) *
                           scaleHeight;
 
                 float x1 = lpPredictions[4 * PLATE_GRID_WIDTH * PLATE_GRID_HEIGHT + row * PLATE_GRID_HEIGHT + col] *

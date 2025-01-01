@@ -3,6 +3,11 @@
 
 using namespace std;
 
+TemplateMatching::TemplateMatching(unordered_map<std::string, Constants::CountryCode> templates) {
+    if (!templates.empty())
+        COUNTRY_TEMPLATES = std::move(templates);
+}
+
 string TemplateMatching::processSquareLicensePlate(const string &topPlateLabel,
                                                    const string &bottomPlateLabel) {
 
@@ -40,7 +45,4 @@ string TemplateMatching::standardizeLicensePlate(const string &plateLabel) const
     return std::move(standardizedPlateLabel);
 }
 
-TemplateMatching::TemplateMatching(unordered_map<std::string, Constants::CountryCode> templates) {
-    if (!templates.empty())
-        COUNTRY_TEMPLATES = std::move(templates);
-}
+

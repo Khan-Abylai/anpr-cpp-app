@@ -8,7 +8,7 @@
 #include "../ILogger.h"
 #include "LicensePlate.h"
 
-class CalibParams : public ILogger {
+class CalibParams : public ::ILogger {
 public:
     CalibParams(const std::string &serverIp, const std::string &cameraIp,
                 std::pair<float, float> calibrationSizes);
@@ -18,12 +18,8 @@ public:
     void getMask();
 
     [[nodiscard]] const std::string &getCameraIp() const;
-
-    [[nodiscard]] float getFrameWidth() const;
-    [[nodiscard]] float getFrameHeight() const;
-
 private:
-    float FRAME_WIDTH_HD, FRAME_HEIGHT_HD;
+    float CALIBRATION_FRAME_WIDTH, CALIBRATION_FRAME_HEIGHT;
     const int WHITE_COLOR = 255;
     const int timeout  = 3000;
     std::string cameraIp;

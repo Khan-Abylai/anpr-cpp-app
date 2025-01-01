@@ -11,7 +11,7 @@
 #include "../ILogger.h"
 #include "../SharedQueue.h"
 
-class BaseCarTracker : public IThreadLauncher, public ILogger {
+class BaseCarTracker : public IThreadLauncher, public ::ILogger {
 public:
     explicit BaseCarTracker(std::shared_ptr<SharedQueue<std::shared_ptr<Package>>> packageQueue,
                             const std::string &cameraIp);

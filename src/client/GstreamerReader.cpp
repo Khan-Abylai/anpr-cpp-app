@@ -2,7 +2,9 @@
 #include "string"
 #include <filesystem>
 
+
 using namespace std;
+
 
 GstreamerReader::GstreamerReader(const CameraScope &cameraScope, bool useGPUDecode,
                                  shared_ptr<SharedQueue<unique_ptr<FrameData>>> frameQueue)
@@ -16,12 +18,11 @@ GstreamerReader::GstreamerReader(const CameraScope &cameraScope, bool useGPUDeco
 
 void GstreamerReader::createStreamDecodingPipeline() {
     string protocol = "protocols=tcp";
-    string decode = (useGPUDecode) ? "nvdec ! gldownload" : "decodebin";
+    string decode = (useGPUDecode) ? "nvh264dec ! cudadownload" : "decodebin";
     auto streamingPipelineString = "rtspsrc " + protocol + " location=" + rtspUrl +
-                                   " name=source latency=0 !  rtph264depay ! h264parse ! " + decode +
-                                   " ! videoconvert ! video/x-raw, format=(string)BGR !  appsink name=sink emit-signals=true ";
+                                   " name=source latency=0 ! rtph264depay ! h264parse ! " + decode +
+                                   " ! videoconvert ! video/x-raw, format=(string)BGR ! appsink name=sink emit-signals=true ";
 
-//    string streamingPipelineString = "filesrc location=../videos/new_video_baqorda.mp4 ! decodebin !  videoconvert !  video/x-raw, format=(string)BGR ! appsink name=sink emit-signals=true ";
     decodingStreamPipeline = gst_parse_launch(streamingPipelineString.c_str(), nullptr);
     if (!GST_IS_PIPELINE(decodingStreamPipeline))
         LOG_ERROR("rtsp pipeline not initialized");

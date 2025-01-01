@@ -27,47 +27,46 @@ SnapshotSender::SnapshotSender(
     initializeImageWriterMap(cameraScope, baseFolder);
 }
 
-std::future<cpr::Response> SnapshotSender::sendRequestAsync(const string &jsonString, const std::string &url) {
-    return cpr::PostAsync(cpr::Url{url}, cpr::VerifySsl(false), cpr::Body{jsonString},
+cpr::AsyncResponse SnapshotSender::sendRequests(const string &jsonString, const string &serverUrl) {
+    return cpr::PostAsync(cpr::Url{serverUrl}, cpr::VerifySsl(false), cpr::Body{jsonString},
                           cpr::Timeout{SEND_REQUEST_TIMEOUT}, cpr::Header{{"Content-Type", "application/json"}});
 }
 
 void SnapshotSender::run() {
     time_t beginTime = time(nullptr);
 
-    queue<future<cpr::Response>> futureResponses;
-    queue<future<cpr::Response>> futureResponsesSecondary;
+    queue<cpr::AsyncResponse> responses;
+    queue<cpr::AsyncResponse> responses2;
 
     while (!shutdownFlag) {
         auto package = snapshotQueue->wait_and_pop();
         if (package == nullptr)
             continue;
         auto imagePath = getFullPath(package);
+
         if (imageWriterEnabled) {
             auto dataToSend = package->getLightweightPackageJsonString(imagePath);
-            futureResponses.push(sendRequestAsync(dataToSend, package->getSnapshotUrl()));
+            responses.push(sendRequests(dataToSend, package->getSnapshotUrl()));
             addPackageToImageWrite(package);
             if (package->useSecondaryUrl())
-                futureResponsesSecondary.push(
-                        sendRequestAsync(dataToSend, package->getSecondarySnapshotUrl()));
+                responses2.push(
+                        sendRequests(dataToSend, package->getSecondarySnapshotUrl()));
         } else {
-            futureResponses.push(sendRequestAsync(package->getPackageJsonString(), package->getSnapshotUrl()));
+            responses.push(sendRequests(package->getPackageJsonString(), package->getSnapshotUrl()));
             if (package->useSecondaryUrl())
-                futureResponsesSecondary.push(
-                        sendRequestAsync(package->getPackageJsonString(), package->getSecondarySnapshotUrl()));
-        }
-        while (futureResponses.size() > MAX_FUTURE_RESPONSES) {
-            std::queue<future<cpr::Response>> empty;
-            std::swap(futureResponses, empty);
-            if (DEBUG)
-                LOG_INFO("swapped snapshot queue with empty queue");
+                responses2.push(
+                        sendRequests(package->getPackageJsonString(), package->getSecondarySnapshotUrl()));
         }
 
-        while (futureResponsesSecondary.size() > MAX_FUTURE_RESPONSES) {
-            std::queue<future<cpr::Response>> empty;
-            std::swap(futureResponsesSecondary, empty);
-            if (DEBUG)
-                LOG_INFO("swapped snapshot queue with empty queue");
+
+        while (responses.size() > MAX_FUTURE_RESPONSES) {
+            std::queue<cpr::AsyncResponse> empty;
+            std::swap(responses, empty);
+        }
+
+        while (responses2.size() > MAX_FUTURE_RESPONSES) {
+            std::queue<cpr::AsyncResponse> empty;
+            std::swap(responses2, empty);
         }
     }
 }

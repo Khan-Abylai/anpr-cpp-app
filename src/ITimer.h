@@ -16,13 +16,13 @@ public:
         recognizerTime = timestamp;
     }
 
-    double getOverallTime() const {
+    [[nodiscard]] double getOverallTime() const {
         return overallTime;
     }
 
     void setOverallTime() {
         auto endTime = std::chrono::high_resolution_clock::now();
-        this->overallTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        this->overallTime = (double) std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
     }
 
     void setOverallTime(double timestamp) {
@@ -33,11 +33,11 @@ public:
         return startTime;
     }
 
-    double getDetectionTime() const {
+    [[nodiscard]] double getDetectionTime() const {
         return detectionTime;
     }
 
-    double getRecognizerTime() const {
+    [[nodiscard]] double getRecognizerTime() const {
         return recognizerTime;
     }
 

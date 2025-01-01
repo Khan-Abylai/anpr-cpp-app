@@ -21,10 +21,8 @@ public:
                 const std::string &nodeIp, const std::string &snapshotSentIp,
                 const std::string &secondaryResultSentEndpoint, bool useSecondaryEndpoint,
                 const std::string &secondarySnapshotSentEndpoint, bool useSecondarySnapshotEndpoint,
-                Constants::VehicleClassificationType typeOfCarRecognition,
                 float timeBetweenResendingPlates, int platesCount, bool useMask2, bool useDirection,
-                const std::string &originPoint, bool isForward,
-                DimensionCoords dimensionCoords);
+                const std::string &originPoint, bool isForward);
 
 
 private:
@@ -32,8 +30,6 @@ private:
     bool useSecondaryEndpoint, useSecondarySnapshotEndpoint, useMask2Flag, useDirectionFlag, isForwardFlag;
     float timeBetweenResendingPlates;
     int platesCount;
-    DimensionCoords COORDS{};
-    Constants::VehicleClassificationType vehicleClassificationType;
 public:
     [[nodiscard]] const std::string &getCameraIp() const;
 
@@ -55,8 +51,6 @@ public:
 
     [[nodiscard]] bool isUseSecondarySnapshotEndpoint() const;
 
-    [[nodiscard]] Constants::VehicleClassificationType whatTypeOfRecognitionEnabled() const;
-
     [[nodiscard]] bool isUseMask2Flag() const;
 
     [[nodiscard]] bool isUseDirectionFlag() const;
@@ -66,7 +60,5 @@ public:
     [[nodiscard]] float getTimeBetweenResendingPlates() const;
 
     [[nodiscard]] int getPlatesCount() const;
-
-    [[nodiscard]] DimensionCoords getDimensionCoords() const;
 
 };

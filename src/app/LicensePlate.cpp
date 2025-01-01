@@ -30,18 +30,17 @@ void LicensePlate::setPlateImage(const cv::Mat &frame) {
     if (square) {
         transformationMatrix = cv::getPerspectiveTransform(vector<cv::Point2f>{
                 leftTop, leftBottom, rightTop, rightBottom
-        }, Constants::SQUARE_LP_COORS);
+        }, Constants::EXTENDED_SQUARE_LP_COORS);
 
-        lpSize = cv::Size(Constants::SQUARE_LP_W, Constants::SQUARE_LP_H);
+        lpSize = cv::Size(Constants::EXTENDED_SQUARE_LP_W, Constants::EXTENDED_SQUARE_LP_H);
 
     } else {
         transformationMatrix = cv::getPerspectiveTransform(vector<cv::Point2f>{
                 leftTop, leftBottom, rightTop, rightBottom
-        }, Constants::RECT_LP_COORS);
+        }, Constants::EXTENDED_RECT_LP_COORS);
 
-        lpSize = cv::Size(Constants::RECT_LP_W, Constants::RECT_LP_H);
+        lpSize = cv::Size(Constants::EXTENDED_RECT_LP_W, Constants::EXTENDED_RECT_LP_H);
     }
-
     cv::warpPerspective(frame, plateImage, transformationMatrix, lpSize);
 
 
@@ -49,13 +48,9 @@ void LicensePlate::setPlateImage(const cv::Mat &frame) {
                              cv::Rect(CROP_PADDING, CROP_PADDING, plateImage.cols - 2 * CROP_PADDING,
                                       plateImage.rows - 2 * CROP_PADDING));
 
-//    laplacianValue = calculateLaplacian(imageCrop);
     laplacianValue = calculateBlurCoefficient(imageCrop);
     whitenessValue = calculateWhiteScore(imageCrop);
-//    qualityValue = calculateQualityMetric(laplacianValue, whitenessValue);
     dftValue = calculateSharpness(imageCrop);
-//    dftValue = calculateDFTSharpness(imageCrop);
-
     croppedPlateImage = imageCrop.clone();
 }
 
@@ -100,11 +95,11 @@ const string &LicensePlate::getPlateLabel() const {
 }
 
 void LicensePlate::setLicensePlateLabel(string lpLabel) {
-    licensePlateLabel = move(lpLabel);
+    licensePlateLabel = std::move(lpLabel);
 }
 
 void LicensePlate::setCameraIp(string ip) {
-    cameraIp = move(ip);
+    cameraIp = std::move(ip);
 }
 
 const string &LicensePlate::getCameraIp() const {
@@ -112,7 +107,7 @@ const string &LicensePlate::getCameraIp() const {
 }
 
 void LicensePlate::setCarImage(cv::Mat image) {
-    carImage = move(image);
+    carImage = std::move(image);
 }
 
 const cv::Mat &LicensePlate::getCarImage() const {
@@ -129,14 +124,6 @@ double LicensePlate::getRTPtimestamp() const {
 
 cv::Size LicensePlate::getCarImageSize() const {
     return carImage.size();
-}
-
-void LicensePlate::setCarModel(std::string carModelParam) {
-    carModel = std::move(carModelParam);
-}
-
-const std::string &LicensePlate::getCarModel() const {
-    return carModel;
 }
 
 const string &LicensePlate::getDirection() const {
@@ -171,24 +158,7 @@ bool LicensePlate::doesSecondaryUrlEnabled() const {
     return secondarySendUrlEnabled;
 }
 
-void LicensePlate::setCarBBoxFlag(bool flag) {
-    bboxCarEnabled = flag;
-}
-
-
-bool LicensePlate::doesCarBBoxDefined() const {
-    return bboxCarEnabled;
-}
-
-void LicensePlate::setVehicleImage(cv::Mat frame) {
-    vehicleImage = std::move(frame);
-}
-
-const cv::Mat &LicensePlate::getVehicleImage() const {
-    return vehicleImage;
-}
-
-void LicensePlate::setPlateProbability(double probability){
+void LicensePlate::setPlateProbability(double probability) {
     plateProbability = probability;
 }
 
@@ -196,13 +166,6 @@ double LicensePlate::getPlateProbability() const {
     return plateProbability;
 }
 
-double LicensePlate::calculateLaplacian(const cv::Mat &imageCrop) {
-    cv::Mat laplacianImg;
-    cv::Laplacian(imageCrop, laplacianImg, CV_64F);
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(laplacianImg, mean, stddev, cv::Mat());
-    return (stddev.val[0] * stddev.val[0]);
-}
 
 double LicensePlate::calculateWhiteScore(const cv::Mat &imageCrop) {
     cv::Mat blurImg;
@@ -216,15 +179,6 @@ double LicensePlate::calculateWhiteScore(const cv::Mat &imageCrop) {
     return whitePercentage;
 }
 
-double LicensePlate::calculateQualityMetric(double laplacianValue, double whiteScore) {
-    auto whiteValue = 0;
-    if (whiteScore > 50) {
-        whiteValue = abs((whiteScore / 50) - 2);
-    } else {
-        whiteValue = whiteScore / 50;
-    }
-    return whiteValue * laplacianValue;
-}
 
 double LicensePlate::calculateSharpness(const cv::Mat &licensePlateImg) {
     cv::Mat imageFloat;
@@ -266,33 +220,8 @@ double LicensePlate::getDFTSharpness() const {
     return dftValue;
 }
 
-double LicensePlate::getQuality() const {
-    return qualityValue;
-}
-
 double LicensePlate::getWhiteness() const {
     return whitenessValue;
-}
-
-double LicensePlate::calculateDFTSharpness(const cv::Mat &image) {
-    cv::Mat grayImage;
-    cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
-    grayImage.convertTo(grayImage, CV_32FC1); // Convert to
-
-    cv::Mat dftImage;
-    cv::dft(grayImage, dftImage, cv::DFT_COMPLEX_OUTPUT);
-
-    cv::Mat magnitude;
-    cv::magnitude(dftImage, dftImage, magnitude);
-
-    double totalEnergy = cv::sum(magnitude.mul(magnitude))[0];
-
-    // Calculate the sharpness metric by focusing on the high-frequency energy
-    // You might need to adjust the threshold based on your image content
-    double highFrequencyEnergy = totalEnergy * 0.1; // Example threshold
-
-    double sharpness = 1.0 - (1.0 / (1.0 + highFrequencyEnergy));
-    return sharpness;
 }
 
 double LicensePlate::calculateBlurCoefficient(const cv::Mat &image) {
@@ -306,15 +235,8 @@ double LicensePlate::calculateBlurCoefficient(const cv::Mat &image) {
     return blurCoefficient;
 }
 
-void LicensePlate::setCarModelProb(double carModelProbability) {
-    this->carModelProb = carModelProbability;
-}
 
-double LicensePlate::getCarModelProb() const {
-    return carModelProb;
-}
-
-double LicensePlate::getRealTimeOfEvent() {
+double LicensePlate::getRealTimeOfEvent() const {
     return this->realTimeOfPackage;
 }
 

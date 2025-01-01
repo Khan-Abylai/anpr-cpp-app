@@ -8,9 +8,10 @@ public:
 
     TrtLogger() : TrtLogger(Severity::kWARNING) {}
 
-    TrtLogger(Severity severity) : reportableSeverity(severity) {}
+    explicit TrtLogger(Severity severity) : reportableSeverity(severity) {}
 
-    void log(Severity severity, const char *msg) override {
+
+    void log(Severity severity, const char *msg) noexcept override {
         if (severity > reportableSeverity) return;
 
         switch (severity) {
@@ -35,3 +36,4 @@ public:
 
     Severity reportableSeverity{Severity::kINFO};
 };
+

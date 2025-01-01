@@ -1,34 +1,32 @@
-#include <filesystem>
-#include <fstream>
-#include <vector>
+//
+// Created by kartykbayev on 6/6/22.
+//
 
 #include "TensorRTEngine.h"
-#include "TrtLogger.h"
-#include "TensorRTDeleter.h"
 
 using namespace std;
 using namespace nvinfer1;
 
-void TensorRTEngine::serializeEngine(ICudaEngine *engine, const string &engineFilename) {
+TrtLogger TensorRTEngine::trtLogger;
 
+void TensorRTEngine::serializeEngine(nvinfer1::ICudaEngine *engine, const string &engineFilename) {
     ofstream engineFile(engineFilename, ios::binary);
     unique_ptr<IHostMemory, TensorRTDeleter> trtModelStream{engine->serialize(), TensorRTDeleter()};
-    engineFile.write((char *) trtModelStream->data(), (int)trtModelStream->size());
+    engineFile.write((char *) trtModelStream->data(), trtModelStream->size());
 }
 
-ICudaEngine *TensorRTEngine::readEngine(const string &engineFilename) {
+nvinfer1::ICudaEngine *TensorRTEngine::readEngine(const string &engineFilename) {
+    ifstream inEngineFile(engineFilename);
 
-    ifstream engineFile(engineFilename);
-
-    engineFile.seekg(0, ios::end);
-    const int modelSize =(int) engineFile.tellg();
-    engineFile.seekg(0, ios::beg);
+    inEngineFile.seekg(0, ios::end);
+    const int modelSize = inEngineFile.tellg();
+    inEngineFile.seekg(0, ios::beg);
 
     vector<char> engineData(modelSize);
-    engineFile.read(engineData.data(), modelSize);
+    inEngineFile.read(engineData.data(), modelSize);
 
-    TrtLogger trt_logger;
-    auto infer = unique_ptr<IRuntime, TensorRTDeleter>(createInferRuntime(trt_logger), TensorRTDeleter());
+    auto infer = unique_ptr<IRuntime, TensorRTDeleter>(nvinfer1::createInferRuntime(getLogger()), TensorRTDeleter());
 
     return infer->deserializeCudaEngine(engineData.data(), modelSize, nullptr);
+
 }

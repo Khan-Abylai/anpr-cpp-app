@@ -4,9 +4,13 @@
 
 using namespace std;
 
-future<cpr::Response> PackageSender::sendRequestAsync(const string &jsonString, const string &url) {
-    return cpr::PostAsync(cpr::Url{url}, cpr::VerifySsl(false), cpr::Body{jsonString},
-                          cpr::Timeout{SEND_REQUEST_TIMEOUT}, cpr::Header{{"Content-Type", "application/json"}});
+cpr::AsyncResponse PackageSender::sendRequests(const string &jsonString, const std::string &serverUrl) {
+    return cpr::PostAsync(
+            cpr::Url{serverUrl},
+            cpr::VerifySsl(false),
+            cpr::Body{jsonString},
+            cpr::Timeout{SEND_REQUEST_TIMEOUT},
+            cpr::Header{{"Content-Type", "application/json"}});
 }
 
 PackageSender::PackageSender(shared_ptr<SharedQueue<shared_ptr<Package>>> packageQueue,
@@ -20,28 +24,29 @@ PackageSender::PackageSender(shared_ptr<SharedQueue<shared_ptr<Package>>> packag
 void PackageSender::run() {
     time_t beginTime = time(nullptr);
 
-    queue<future<cpr::Response >> futureResponses;
-    queue<future<cpr::Response >> futureResponsesSecondary;
+    queue<cpr::AsyncResponse> futureResponses;
+    queue<cpr::AsyncResponse> futureResponsesSecondary;
     while (!shutdownFlag) {
         auto package = packageQueue->wait_and_pop();
         if (package == nullptr) continue;
 
         auto [imagePath, lpImagePath] = getPairOfImagePaths(package);
+
         if (imageWriterEnabled) {
-            LOG_INFO("%s %s %s %s %s %s", package->getCameraIp().data(), package->getPlateLabel().data(),
-                     Utils::dateTimeToStr(time_t(nullptr)).c_str(), imagePath.c_str(), package->getCarModel().c_str(), lpImagePath.data());
-            auto dataToSend = package->getLightweightPackageJsonString(imagePath, lpImagePath);
-            futureResponses.push(sendRequestAsync(dataToSend, package->getResultSendUrl()));
+            LOG_INFO("%s %s %s %s", package->getCameraIp().data(), package->getPlateLabel().data(),
+                     Utils::dateTimeToStr(time_t(nullptr)).c_str(), imagePath.c_str());
+            auto dataToSend = package->getLightweightPackageJsonString(imagePath,lpImagePath);
+            futureResponses.push(sendRequests(dataToSend, package->getResultSendUrl()));
             addPackageToImageWrite(package);
             if (package->doesSecondaryResultSendUrlEnabled())
-                futureResponsesSecondary.push(sendRequestAsync(dataToSend, package->getSecondaryResultSendUrl()));
+                futureResponsesSecondary.push(sendRequests(dataToSend, package->getSecondaryResultSendUrl()));
         } else {
-            LOG_INFO("%s %s %s %s", package->getCameraIp().data(), package->getPlateLabel().data(),
-                     Utils::dateTimeToStr(time_t(nullptr)).c_str(), package->getCarModel().c_str());
-            futureResponses.push(sendRequestAsync(package->getPackageJsonString(), package->getResultSendUrl()));
+            LOG_INFO("%s %s %s", package->getCameraIp().data(), package->getPlateLabel().data(),
+                     Utils::dateTimeToStr(time_t(nullptr)).c_str());
+            futureResponses.push(sendRequests(package->getPackageJsonString(), package->getResultSendUrl()));
             if (package->doesSecondaryResultSendUrlEnabled())
                 futureResponsesSecondary.push(
-                        sendRequestAsync(package->getPackageJsonString(), package->getSecondaryResultSendUrl()));
+                        sendRequests(package->getPackageJsonString(), package->getSecondaryResultSendUrl()));
         }
 
 

@@ -1,0 +1,95 @@
+FROM nvidia/cuda:11.2.2-devel-ubuntu20.04
+SHELL ["/bin/bash", "-c"]
+ENV CUDNN_VERSION 8.1.1
+ENV NVIDIA_DRIVER_CAPABILITIES all
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
+    apt-utils \
+    software-properties-common \
+    libtool \
+    pkg-config \
+    ca-certificates \
+    sudo \
+    build-essential \
+    cmake \
+    git \
+    curl \
+    gcc \
+    vim \
+    wget \
+    unzip \
+    xz-utils \
+    yasm \
+    libjpeg-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libglu1-mesa-dev \
+    libprotobuf-dev \
+    protobuf-compiler \
+    autopoint \
+    bison \
+    flex \
+    gtk-doc-tools \
+    libglib2.0-dev \
+    liborc-0.4-0 \
+    liborc-0.4-dev \
+    swig \
+    libgtk2.0-dev \
+    libzmq3-dev \
+    libcanberra-gtk-module \
+    libcanberra-gtk3-module \
+    python3-pip \
+    libavfilter-dev \
+    libavutil-dev \
+    nlohmann-json3-dev \
+    && apt-get clean
+
+
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
+    && apt-get update \
+    && apt install -y gcc-9 g++-9 --no-install-recommends
+
+RUN apt-get install -y --no-install-recommends \
+    libcudnn8=$CUDNN_VERSION.33-1+cuda11.2 \
+    libcudnn8-dev=$CUDNN_VERSION.33-1+cuda11.2
+
+RUN cd /tmp/ \
+    && wget https://github.com/Kitware/CMake/releases/download/v3.23.3/cmake-3.23.3.tar.gz \
+    && tar -xvf cmake-3.23.3.tar.gz \
+    && cd cmake-3.23.3 \
+    && ./configure && make -j4 && make install -j4 \
+    && rm -rf /tmp/cmake-3.23.3*
+
+RUN pip3 install meson ninja
+
+RUN cd /tmp/ \
+    && wget https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.22.2.tar.xz \
+    && wget https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.22.2.tar.xz \
+    && wget https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.22.2.tar.xz \
+    && wget https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.22.2.tar.xz \
+    && wget https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.22.2.tar.xz \
+    && tar -xvf gstreamer-1.22.2.tar.xz && cd gstreamer-1.22.2 && meson build --prefix=/usr && ninja -C build install && cd .. \
+    && tar -xvf gst-plugins-base-1.22.2.tar.xz && cd gst-plugins-base-1.22.2 && meson build --prefix=/usr && ninja -C build install && cd .. \
+    && tar -xvf gst-plugins-good-1.22.2.tar.xz && cd gst-plugins-good-1.22.2 && meson build --prefix=/usr && ninja -C build install && cd .. \
+    && tar -xvf gst-plugins-bad-1.22.2.tar.xz && cd gst-plugins-bad-1.22.2 && meson build --prefix=/usr && ninja -C build install && cd .. \
+    && tar -xvf gst-libav-1.22.2.tar.xz && cd gst-libav-1.22.2 && meson build --prefix=/usr && ninja -C build install && cd .. \
+    && rm -rf *
+
+RUN cd /tmp/ && git clone --recursive https://github.com/whoshuu/cpr.git && cd cpr && mkdir build && cd build && cmake .. && make -j4 && make install \
+    && cd /tmp/ && rm -rf cpr \
+    && wget https://github.com/opencv/opencv/archive/4.7.0.tar.gz && tar -xvf *.tar.gz && mkdir opencv-4.7.0/build \
+    && cd opencv-4.7.0/build && wget https://github.com/opencv/opencv_contrib/archive/4.7.0.tar.gz && tar -xvf *.tar.gz \
+    && cmake -D WITH_GTK=ON -D OPENCV_EXTRA_MODULES_PATH=opencv_contrib-4.7.0/modules .. \
+    && make -j4 && make install && rm -rf /tmp/opencv-4.7.0* /tmp/*.tar.gz
+
+COPY TensorRT-8.5.3.1.Linux.x86_64-gnu.cuda-11.8.cudnn8.6.tar.gz /tmp/TensorRT-8.5.3.1.tar.gz
+
+RUN cd /tmp/ && tar -xvf TensorRT-8.5.3.1.tar.gz && cd TensorRT-8.5.3.1 \
+    && cp -R lib/* /usr/lib/x86_64-linux-gnu/ \
+    && rm /usr/lib/x86_64-linux-gnu/libnv*.a \
+    && cp include/* /usr/include/x86_64-linux-gnu/ \
+    && cp bin/* /usr/bin/ \
+    && rm -rf /tmp/TensorRT-8.5.3.1*

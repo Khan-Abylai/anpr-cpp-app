@@ -13,7 +13,7 @@ bool Template::parseJson(const std::string &fileName) {
         ifstream templateFile(fileName);
 
         if (!templateFile.is_open())
-            throw runtime_error("Config file not found");
+            throw runtime_error("Template file not found");
 
         json templates = json::parse(templateFile);
 

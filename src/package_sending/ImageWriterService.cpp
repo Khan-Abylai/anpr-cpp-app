@@ -8,14 +8,7 @@ using namespace std;
 namespace fs = std::filesystem;
 
 ImageWriterService::ImageWriterService(string cameraIp, const std::string &baseFolderPath) : ILogger(
-        "ImageWriter Service"),
-                                                                                             CAMERA_IP(std::move(
-                                                                                                     cameraIp)),
-                                                                                             baseFolder{
-                                                                                                     baseFolderPath} {
-
-    if(DEBUG)
-        LOG_DEBUG("Initialized for camera: %s", CAMERA_IP.c_str());
+        "ImageWriter Service"),CAMERA_IP(std::move(cameraIp)),baseFolder{baseFolderPath} {
     packageQueue = make_shared<SharedQueue<shared_ptr<Package>>>();
 }
 
@@ -25,17 +18,13 @@ void ImageWriterService::addToQueueSnapshot(const shared_ptr<Snapshot> &snapshot
         fs::create_directory(baseFolder);
     }
     bool success = imageWriteSnapshot(snapshot);
-
     if (!success) {
         LOG_ERROR("Snapshot Image was not stored on the disk");
     }
-
 }
 
 
-void ImageWriterService::addToQueue(const shared_ptr<Package> &package){
-    if(DEBUG)
-        LOG_DEBUG("Label: %s, camera ip: %s", package->getPlateLabel().c_str(), package->getCameraIp().c_str());
+void ImageWriterService::addToQueue(const shared_ptr<Package> &package) {
 
     if (!fs::exists(baseFolder)) {
         fs::create_directory(baseFolder);
@@ -45,8 +34,6 @@ void ImageWriterService::addToQueue(const shared_ptr<Package> &package){
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     auto in_seconds = elapsed.count() * 1e-9;
-    if(DEBUG)
-        LOG_DEBUG("Imwrite time: %f", in_seconds);
     if (!success) {
         LOG_ERROR("Image was not stored on the disk");
     }

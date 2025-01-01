@@ -20,7 +20,7 @@
 #include "../app/CameraScope.h"
 #include "ImageWriterService.h"
 
-class SnapshotSender : public IThreadLauncher, public ILogger {
+class SnapshotSender : public IThreadLauncher, public ::ILogger {
 public:
     SnapshotSender(
             std::shared_ptr<SharedQueue<std::shared_ptr<Snapshot>>> snapshotQueue,
@@ -39,7 +39,7 @@ private:
     bool imageWriterEnabled = false;
     std::shared_ptr<SharedQueue<std::shared_ptr<Snapshot>>> snapshotQueue;
 
-    std::future<cpr::Response> sendRequestAsync(const std::string &jsonString, const std::string &url);
+    cpr::AsyncResponse sendRequests(const std::string &jsonString, const std::string &serverUrl);
 
     std::unordered_map<std::string, std::unique_ptr<ImageWriterService>> cameraIpToImageWriterMap;
 
@@ -48,5 +48,4 @@ private:
     std::string getFullPath(const std::shared_ptr<Snapshot> &package);
 
     void addPackageToImageWrite(const std::shared_ptr<Snapshot> &snapshot);
-
 };

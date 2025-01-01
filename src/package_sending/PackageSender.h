@@ -15,7 +15,7 @@
 #include "../app/CameraScope.h"
 #include "ImageWriterService.h"
 
-class PackageSender : public IThreadLauncher, public ILogger {
+class PackageSender : public IThreadLauncher, public ::ILogger {
 public:
     PackageSender(std::shared_ptr<SharedQueue<std::shared_ptr<Package>>> packageQueue,
                   const std::vector<CameraScope> &cameraScope, const std::string &baseFolder,
@@ -44,7 +44,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<ImageWriterService>> cameraIpToImageWriterMap;
 
 
-    std::future<cpr::Response> sendRequestAsync(const std::string &jsonString, const std::string &url);
+    cpr::AsyncResponse sendRequests(const std::string &jsonString, const std::string &serverUrl);
 
     double getAverageTime(double averageTime, double currentTime) const;
 

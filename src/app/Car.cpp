@@ -69,7 +69,7 @@ bool Car::isLicensePlateBelongsToCar(const shared_ptr<LicensePlate> &curLicenseP
 
     auto licensePlateBelongsToCar = isLicensePlateBelongsToCar(curLicensePlate->getPlateLabel());
 
-    if ( licensePlateBelongsToCar && timeDiffBetweenFrames >= TIMEOUT_OF_PLATE)
+    if (licensePlateBelongsToCar && timeDiffBetweenFrames >= TIMEOUT_OF_PLATE)
         return false;
 
     return licensePlateBelongsToCar;
@@ -93,7 +93,7 @@ bool Car::isLicensePlateBelongsToCar(const string &otherPlateLabel) {
 }
 
 
-const std::shared_ptr<LicensePlate> &Car::getMostCommonLicensePlate(bool showPlates, bool showModels) const {
+const std::shared_ptr<LicensePlate> &Car::getMostCommonLicensePlate(bool showPlates) const {
     if (showPlates) {
         LOG_INFO("---- found plates -----");
         for (const auto &plate: licensePlates) {
@@ -101,24 +101,14 @@ const std::shared_ptr<LicensePlate> &Car::getMostCommonLicensePlate(bool showPla
         }
     }
 
-    if (showModels) {
-        LOG_INFO("---- found models -----");
-        for (const auto &model: trackingCarModels) {
-            auto tempItem =
-                    std::reduce(model.second.second.begin(), model.second.second.end()) / model.second.second.size();
-            LOG_INFO("model: %s, count: %d probability:%f", model.first.c_str(), model.second.first,
-                     tempItem);
-        }
-    }
-
     return mostCommonPlate->getItem();;
 }
 
-void Car::setBestFrame(){
+void Car::setBestFrame() {
     double maxProb = 0.0;
     cv::Mat bestFrame;
-    for(const auto &plate: licensePlates) {
-        if (plate->getItem()->getPlateProbability() > maxProb){
+    for (const auto &plate: licensePlates) {
+        if (plate->getItem()->getPlateProbability() > maxProb) {
             maxProb = plate->getItem()->getPlateProbability();
             bestFrame = plate->getItem()->getCarImage();
             plate->getItem()->setCarImage(bestFrame);
@@ -145,53 +135,13 @@ Directions Car::getDirection() {
 
 
 bool Car::doesPlatesCollected() {
-    int platesCollected = 0;
-    for (const auto &plate: licensePlates) platesCollected += plate->getNumberOfOccurrence();
 
-    if (platesCollected >= MIN_NUM_PLATES_COLLECTED) return true;
-    return false;
-}
+    bool platesCollected = false;
 
-void Car::addTrackingCarModel(const basic_string<char> &carModel, const double probability) {
-    if (trackingCarModels.find(carModel) == trackingCarModels.end())
-        trackingCarModels.insert(make_pair(carModel,
-                                           make_pair(1, std::vector<double>{probability})));
-    else {
-        trackingCarModels[carModel].first++;
-        trackingCarModels[carModel].second.push_back(probability);
-    };
-}
-
-
-std::pair<std::string, std::pair<int, double>> Car::getCarModelWithOccurrence() {
-    if (findEntryWithLargestValue(trackingCarModels).first == trackingCarModels.end()->first) {
-        return pair<std::string, std::pair<int, double>>{"NotDefined", {0, 0.0}};
-    } else {
-        return pair<std::string, std::pair<int, double>>{findEntryWithLargestValue(trackingCarModels).first,
-                                                         findEntryWithLargestValue(trackingCarModels).second};
-    }
-}
-
-void Car::mostCommonCarModelsShow() {
-    if (findEntryWithLargestValue(trackingCarModels).first == trackingCarModels.end()->first) {
-        LOG_INFO("----- no found models -----");
-    } else {
-        LOG_INFO("---- found models -----");
-        for (const auto &model: trackingCarModels) {
-            auto tempItem =
-                    std::reduce(model.second.second.begin(), model.second.second.end()) / model.second.second.size();
-            LOG_INFO("model: %s, count: %d probability: %f", model.first.c_str(), model.second.first,
-                     tempItem);
-        }
-    }
-}
-
-bool Car::doesPlatesDoubleCollected() {
-    int platesCollected = 0;
-    for (const auto &plate: licensePlates) platesCollected += plate->getNumberOfOccurrence();
-
-    if (platesCollected * 1.0 >= MIN_NUM_PLATES_COLLECTED * 1.0 * MULTIPLIER) return true;
-    return false;
+    for (const auto &plate: licensePlates)
+        if (plate->getNumberOfOccurrence() >= MIN_NUM_PLATES_COLLECTED)
+            platesCollected = true;
+    return platesCollected;
 }
 
 Directions Car::determineMotionDirection(const vector<cv::Point2f> &coordinates, const cv::Point2f &originPoint) {
@@ -200,8 +150,8 @@ Directions Car::determineMotionDirection(const vector<cv::Point2f> &coordinates,
 
     cv::Point2f startPtOriginPoint = {startPoint.x, originPoint.y};
     cv::Point2f endPtOriginPoint = {endPoint.x, originPoint.y};
-    auto deltaA = getDistance(startPoint, startPtOriginPoint);
-    auto deltaB = getDistance(endPoint, endPtOriginPoint);
+    auto deltaA = Utils::calculateDistanceBetweenTwoPoints(startPoint, startPtOriginPoint);
+    auto deltaB = Utils::calculateDistanceBetweenTwoPoints(endPoint, endPtOriginPoint);
 
     if (deltaB < deltaA)
         return Directions::forward;

@@ -8,7 +8,7 @@
 #include "GstreamerReader.h"
 #include "../app/CameraScope.h"
 
-class CameraClientLauncher : public IThreadLauncher, public ILogger {
+class CameraClientLauncher : public IThreadLauncher, public ::ILogger {
 public:
     CameraClientLauncher(const std::vector<CameraScope> &cameras,
                          const std::vector<std::shared_ptr<SharedQueue<std::unique_ptr<FrameData>>>> &frameQueues,

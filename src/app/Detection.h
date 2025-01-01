@@ -14,7 +14,7 @@
 #include "TensorRTDeleter.h"
 #include "../ILogger.h"
 
-class Detection : public ILogger {
+class Detection : public ::ILogger {
 public:
 
     Detection(nvinfer1::IExecutionContext *executionContext, const float &detectionThreshold);

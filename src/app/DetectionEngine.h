@@ -32,7 +32,7 @@ private:
     const int COORDINATE_SIZES[1] = {COORDINATE_SIZE};
     const std::string NETWORK_INPUT_NAME = "INPUT",
             ENGINE_NAME = "detection.engine",
-            WEIGHTS_FILENAME = "detector_sng_europe.np";
+            WEIGHTS_FILENAME = "detector_marocco_europe.np";
     const std::vector<std::string> NETWORK_OUTPUT_NAMES{"PLATE_OUTPUT"};
 
     void createEngine();

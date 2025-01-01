@@ -57,12 +57,10 @@ bool Config::parseJson(const string &fileName) {
 
             //////////////////////////////////////////////////////////////////////////////////////
             bool useSubMaskFlag, doesSecondaryNodeIpDefined, doesSecondarySnapshotIpDefined;
-            bool carModelRecognitionFlag, isForwardFlag, useDirection;
+            bool isForwardFlag, useDirection;
             std::string secondaryResultSendIp, secondarySnapshotIp;
             int platesCount;
             float timeBetweenSendingPlates;
-            Constants::VehicleClassificationType vehicleClassificationType;
-
             //working with snapshots secondary snapshot send ip
             if (cameraEntity.find("secondary_snapshot_send_ip") == cameraEntity.end()) {
                 doesSecondarySnapshotIpDefined = false;
@@ -82,20 +80,6 @@ bool Config::parseJson(const string &fileName) {
                 useSubMaskFlag = true;
             else
                 useSubMaskFlag = false;
-
-            //working with vehicle type recognition
-            if (cameraEntity.find("car_model_recognition") == cameraEntity.end() ||
-                cameraEntity["car_model_recognition"].get<int>() == 0)
-                vehicleClassificationType = Constants::VehicleClassificationType::noType;
-            else if (cameraEntity["car_model_recognition"].get<int>() == 1)
-                vehicleClassificationType = Constants::VehicleClassificationType::modelType;
-            else if (cameraEntity["car_model_recognition"].get<int>() == 2)
-                vehicleClassificationType = Constants::VehicleClassificationType::carType;
-            else if (cameraEntity["car_model_recognition"].get<int>() == 3)
-                vehicleClassificationType = Constants::VehicleClassificationType::baqordaType;
-            else
-                throw runtime_error(
-                        "Please remove or set 0 car_model_recognition if you dont want use car model recognition, or set 1 or 2");
 
             // working with the time between plate sending
             if (cameraEntity.find("time_between_sent_plates") == cameraEntity.end())
@@ -140,30 +124,16 @@ bool Config::parseJson(const string &fileName) {
                 isForward = false;
             }
 
-            if (cameraEntity.find("dimension_coords") == cameraEntity.end() ||
-                !validateString(cameraEntity["dimension_coords"].get<string>())) {
-                dimensionCoords.x1 = 250.0f;
-                dimensionCoords.x2 = 250.0f;
-                dimensionCoords.y1 = 500.0f;
-                dimensionCoords.y2 = 150.0f;
-            } else {
-                auto coords = splitStringToFloats(cameraEntity["dimension_coords"].get<string>());
-                dimensionCoords.x1 = coords[0];
-                dimensionCoords.x2 = coords[1];
-                dimensionCoords.y1 = coords[2];
-                dimensionCoords.y2 = coords[3];
-            }
-
-
-            if (useDirection && carModelRecognitionFlag)
-                throw runtime_error("Direction and CarModelRecognition can not work together");
+            dimensionCoords.x1 = 250.0f;
+            dimensionCoords.x2 = 250.0f;
+            dimensionCoords.y1 = 500.0f;
+            dimensionCoords.y2 = 150.0f;
 
             auto cameraScope = CameraScope(cameraIp, rtspUrl, resultSendEndpoint, nodeIp, snapshotSendIp,
                                            secondaryResultSendIp, doesSecondaryNodeIpDefined, secondarySnapshotIp,
-                                           doesSecondarySnapshotIpDefined, vehicleClassificationType,
+                                           doesSecondarySnapshotIpDefined,
                                            timeBetweenSendingPlates,
-                                           platesCount, useSubMaskFlag, useDirection, originPoint, isForward,
-                                           dimensionCoords);
+                                           platesCount, useSubMaskFlag, useDirection, originPoint, isForward);
             allCameras.push_back(cameraScope);
         }
 
@@ -191,7 +161,7 @@ bool Config::parseJson(const string &fileName) {
             timeBetweenSnapshotSend = configs["time_between_snapshot_send"].get<float>();
 
         if (configs.find("rec_threshold") == configs.end())
-            recognizerThreshold = 0.95f;
+            recognizerThreshold = 0.9f;
         else
             recognizerThreshold = configs["rec_threshold"].get<float>();
 
@@ -281,7 +251,6 @@ std::vector<std::vector<CameraScope>> Config::reshapeVector(const std::vector<Ca
 const std::vector<CameraScope> &Config::getAllCameras() {
     return allCameras;
 }
-
 
 
 

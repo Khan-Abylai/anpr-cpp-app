@@ -25,7 +25,7 @@ struct ImageInfo {
 };
 
 
-class ImageWriterService : public IThreadLauncher, public ILogger {
+class ImageWriterService : public IThreadLauncher, public ::ILogger {
 public:
     explicit ImageWriterService(std::string cameraIp, const std::string &baseFolderPath);
 

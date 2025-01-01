@@ -21,7 +21,7 @@
 
 using namespace std;
 
-class LPRecognizerService : public IThreadLauncher, public ILogger {
+class LPRecognizerService : public IThreadLauncher, public ::ILogger {
 public:
     LPRecognizerService(const std::shared_ptr<SharedQueue<std::shared_ptr<Package>>> &packageQueue,
                         const std::vector<CameraScope> &cameras, float recognizerThreshold,
@@ -79,9 +79,6 @@ private:
     bool isValidByConf(float probability) const;
 
     bool isValidByPattern(const std::string &lpLabel);
-
-
-    std::pair<cv::Mat, cv::Mat> divideImageIntoHalf(const cv::Mat &lpImage);
 
     void addPlateToTrack(const std::shared_ptr<LicensePlate> &licensePlate);
 

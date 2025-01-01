@@ -15,12 +15,14 @@ void BaseCarTracker::showResult(const shared_ptr<LicensePlate> &licensePlate) {
     currentCar->drawBoundingBoxPoints(copyImage, licensePlate);
     currentCar->drawTrackingPoints(copyImage);
     cv::Mat displayImage;
-    cv::resize(copyImage, displayImage,cv::Size(copyImage.cols * 0.7,copyImage.rows * 0.7), 0, 0);
+    cv::resize(copyImage, displayImage, cv::Size(copyImage.cols * 0.7, copyImage.rows * 0.7), 0, 0);
     cv::imshow(licensePlate->getCameraIp(), displayImage);
     cv::waitKey(60);
 }
 
-shared_ptr<Car> BaseCarTracker::createNewCar(const int &platesCount, const std::string &cameraIp, const std::string &originPoint, const cv::Point2f &imageSizes) {
+shared_ptr<Car>
+BaseCarTracker::createNewCar(const int &platesCount, const std::string &cameraIp, const std::string &originPoint,
+                             const cv::Point2f &imageSizes) {
     return make_shared<Car>(platesCount, cameraIp, originPoint, imageSizes);
 }
 
@@ -29,7 +31,7 @@ shared_ptr<Package> BaseCarTracker::createPackage(const shared_ptr<LicensePlate>
 
     auto package = make_shared<Package>(licensePlate->getCameraIp(), licensePlate->getPlateLabel(),
                                         licensePlate->getCarImage(), licensePlate->getPlateImage(), strBoundingBox,
-                                        licensePlate->getCarModel(), licensePlate->getDirection(),
+                                        licensePlate->getDirection(),
                                         licensePlate->getResultSendUrl(), licensePlate->getSecondaryResultSendUrl(),
                                         licensePlate->doesSecondaryUrlEnabled(), licensePlate->getRealTimeOfEvent());
 
